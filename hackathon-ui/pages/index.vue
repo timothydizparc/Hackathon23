@@ -1,48 +1,140 @@
 <template>
   <audio ref="audioRef" src="elevator-mood.mp3"></audio>
+  <audio ref="voiceRef" :src="voiceSrc"></audio>
   <div
-    class="bg-gray-100 min-h-screen flex flex-col justify-center items-center"
+    class="bg-gradient-to-r from-pink-500 to-orange-500 min-h-screen flex flex-col justify-center items-center"
   >
-  <div>
-  </div>
-  <div id="form-content" class="flex flex-col justify-center items-center">
-    <h1 class="text-4xl font-bold mb-4">Welcome to my Nuxt app!</h1>
-    <p class="text-lg">Here's some content for the page.</p>
-    <form class="mt-4" @submit.prevent="onSubmit" id="form">
-      <label class="block mb-2 font-bold text-gray-700" for="name">
-        Name
-      </label>
-      <input
-        class="w-full px-3 py-2 mb-3 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-        id="name"
-        type="text"
-        placeholder="Write some text"
-      />
-      <button
-        class="px-4 py-2 font-bold text-white bg-blue-500 rounded hover:bg-blue-700 focus:outline-none focus:shadow-outline-blue"
-        type="submit"
-      >
-        Submit
-      </button>
-    </form>
-  </div>
-    <div class="mt-4">
-      <h2 class="text-lg font-bold mb-2">Models:</h2>
-      <ul class="list-disc pl-4">
-        <li v-for="model in models" :key="model.id" class="mb-2 random">
-          {{ model.title }}
-        </li>
-      </ul>
+    <div class="bg-black rounded-xl p-6 text-white" id="form-content">
+      <div class="text-center">
+        <h1
+          class="text-5xl font-extrabold mb-4 bg-gradient-to-l from-purple-700 to-cyan-400 inline-block text-transparent bg-clip-text"
+        >
+          FrEAKyVoICe.io
+        </h1>
+      </div>
+      <p class="text-xl">
+        Fill in the form to generate some sick voicelines by your favourite
+        famous person/character
+      </p>
+      <form class="mt-4" @submit.prevent="">
+        <label class="block mb-2 font-bold">Voice</label>
+
+        <select
+          v-model="selectedModel"
+          class="w-full px-3 py-2 mb-3 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+        >
+          <option :value="null" disabled selected>Select a voice</option>
+          <option
+            v-for="(model, index) in voiceModels"
+            :key="index"
+            :value="model"
+          >
+            {{ model.title }}
+          </option>
+        </select>
+
+        <div v-if="voiceRating">Voice rating: {{ voiceRating }}/10</div>
+
+        <label class="block mb-2 font-bold" for="name"> Name </label>
+        <input
+          class="w-full px-3 py-2 mb-3 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+          id="name"
+          type="text"
+          placeholder="Write some text"
+          v-model="textToVoice"
+        />
+        <button
+          class="px-4 py-2 font-bold text-white bg-cyan-500 rounded hover:bg-pink-500 focus:outline-none focus:shadow-outline-blue cursor-pointer"
+          type="submit"
+          @click.prevent="getJokes()"
+        >
+          Submit
+        </button>
+      </form>
+
+      <div v-if="!isValidForm" class="mt-2 font-bold text-red-600">
+        Form has errors
+      </div>
     </div>
+  </div>
+  <div>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { VoiceModel } from "~/models/VoiceModel";
+import type { TTSRequest } from "~/models/request/TTSRequest";
+
+const voiceModels = ref<VoiceModel[]>([]);
+const selectedModel = ref<VoiceModel | null>(null);
+const textToVoice = ref<string>("");
+
+const request = ref<TTSRequest | null>(null);
+
+const voiceRef= ref<any>(null);
+const voiceSrc = ref<any>(null);
+
+const isValidForm = computed(
+  () =>
+    !!selectedModel.value &&
+    textToVoice.value.length > 10 &&
+    textToVoice.value.length < 100
+);
+
+const voiceRating = computed<number | null>(() => {
+  if (!selectedModel.value) return null;
+
+  const userRatings = selectedModel.value.user_ratings;
+  return userRatings
+    ? (userRatings.total_count - userRatings.negative_count) % 10
+    : null;
+});
+
+// function onSubmit(): void {
+//   if (!isValidForm) return;
+
+//   // TODO: send text and voice model to API and save uuid
+//   const request: TTSRequest = {
+//     tts_model_token: selectedModel.value!.model_token,
+//     uuid_idempotency_token: uuidGenerator(),
+//     inference_text: textToVoice.value,
+//   };
+//   alert("Submitted!");
+// }
+
+let is_running = false;
+const audio_path = ref<string>("");
+let poller: any = null;
+async function onFetchAudio() {
+  getJokes();
+  if (!isValidForm) return;
+  if (is_running) {
+    return;
+  }
+  is_running = true;
+
+  request.value = {
+    tts_model_token: selectedModel.value!.model_token,
+    uuid_idempotency_token: uuidGenerator(),
+    inference_text: textToVoice.value,
+  };
+  poller = setInterval(() => poller_func(request.value!.tts_model_token), 3000);
+}
+
+async function poller_func(token: string) {
+  await fetch(`/api/voicy_poll?token=${token}`).then(async (response) => {
+    var result = await response.json();
+    if (result.success === "true") {
+      clearInterval(poller);
+      audio_path.value = result.path;
+    }
+  });
+}
 import { ref, onMounted } from 'vue';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: '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', // defaults to process.env["OPENAI_API_KEY"]
+  apiKey: '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', // defaults to process.env["OPENAI_API_KEY"]
   dangerouslyAllowBrowser: true
 });
 
@@ -51,31 +143,20 @@ const audioRef = ref<any>(null);
 
 const jokes = ref<string[] | undefined>([]);
 
-async function onSubmit() {
-  getJokes();
-  const { data } = await useFetch("/api/voices");
-  console.log(data.value?.voices);
-  models.value = data.value?.voices;
-}
+const { data } = await useFetch("/api/voices");
+voiceModels.value = data.value!;
 
 async function getJokes() {
   const jokeDivs: HTMLElement[] = [];
   if (!jokes.value) return;
-
+  
   audioRef.value.play();
 
   for (const joke of jokes.value) {
-    console.log(joke);
     const div = document.createElement("div");
     div.innerText = joke;
-    div.classList.add("bg-purple-500");
-    div.classList.add("text-white");
-    div.classList.add("font-bold");
-    div.classList.add("rounded");
-    div.classList.add("absolute");
-    div.classList.add("p-4");
-    div.classList.add("max-w-md");
-    div.classList.add("joke");
+    div.classList.add("bg-purple-500", "text-white", "font-bold", "rounded", "absolute", "p-4", "max-w-md", "joke");
+    div.classList.add("bg-gradient-to-r", "from-cyan-500", "to-blue-500");
     div.style.opacity = "0";
     div.style.transition = "opacity 0.8s ease-in-out";
     jokeDivs.push(div);
@@ -87,7 +168,7 @@ async function getJokes() {
 
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
-  const formElement = document.getElementById('form'); // Get the form element
+  const formElement = document.getElementById('form-content'); // Get the form element
   const formRect = formElement!.getBoundingClientRect(); // Get the bounding rectangle of the form
   let opacityDelay = 800;
 

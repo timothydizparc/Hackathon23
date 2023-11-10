@@ -1,9 +1,6 @@
-export default defineEventHandler(async (event) => {
-  const voicesResponse = await fetch("https://api.fakeyou.com/tts/list");
-  const voices = await voicesResponse.json();
-  console.log(voices);
+import { VoiceModel } from "~/models/VoiceModel";
+import voiceModels from "../../assets/voice-models.json";
 
-  return {
-    voices: voices.models.slice(0, 2),
-  };
+export default defineEventHandler((event): VoiceModel[] => {
+  return voiceModels.models as VoiceModel[];
 });
