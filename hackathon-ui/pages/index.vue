@@ -4,7 +4,7 @@
   >
     <h1 class="text-4xl font-bold mb-4">Welcome to my Nuxt app!</h1>
     <p class="text-lg">Here's some content for the page.</p>
-    <form class="mt-4" @submit.prevent="onSubmit">
+    <form class="mt-4" @submit.prevent="onFetchAudio">
       <label class="block mb-2 font-bold text-gray-700" for="name">
         Name
       </label>
@@ -36,9 +36,33 @@
 <script setup lang="ts">
 const models = ref<any[]>([]);
 
-async function onSubmit() {
-  const { data } = await useFetch("/api/voices");
-  console.log(data.value?.voices);
-  models.value = data.value?.voices;
+// async function onSubmit() {
+//   const { data } = await useFetch("/api/voices");
+//   console.log(data.value?.voices);
+//   models.value = data.value?.voices;
+// }
+
+let is_running = false;
+let audio_path: any = null;
+let poller: any = null;
+
+async function onFetchAudio() {
+  if (is_running) {
+    return;
+  }
+
+  is_running = true;
+
+  poller = setInterval(poller_func, 3000);
 }
+
+async function poller_func(token: string) {
+  await fetch("/api/voicy_poll?token=${token}").then(async (response) =>{
+    var result = await response.json();
+
+    if (result.success === 'true') {
+      clearInterval(poller);
+      audio_path = result.path;
+    }
+})};
 </script>
