@@ -14,7 +14,7 @@
         Fill in the form to generate some sick voicelines by your favourite
         famous person/character
       </p>
-      <form class="mt-4" @submit.prevent="onSubmit">
+      <form class="mt-4" @submit.prevent="onFetchAudio">
         <label class="block mb-2 font-bold">Voice</label>
 
         <select
@@ -59,11 +59,13 @@
 
 <script setup lang="ts">
 import type { VoiceModel } from "~/models/VoiceModel";
-import type { TTSRequest } from "~/models/TTSRequest";
+import type { TTSRequest } from "~/models/request/TTSRequest";
 
 const voiceModels = ref<VoiceModel[]>([]);
 const selectedModel = ref<VoiceModel | null>(null);
 const textToVoice = ref<string>("");
+
+const request = ref<TTSRequest | null>(null);
 
 const isValidForm = computed(
   () =>
@@ -81,16 +83,44 @@ const voiceRating = computed<number | null>(() => {
     : null;
 });
 
-function onSubmit(): void {
-  if (!isValidForm) return;
+// function onSubmit(): void {
+//   if (!isValidForm) return;
 
-  // TODO: send text and voice model to API and save uuid
-  const request: TTSRequest = {
+//   // TODO: send text and voice model to API and save uuid
+//   const request: TTSRequest = {
+//     tts_model_token: selectedModel.value!.model_token,
+//     uuid_idempotency_token: uuidGenerator(),
+//     inference_text: textToVoice.value,
+//   };
+//   alert("Submitted!");
+// }
+
+let is_running = false;
+const audio_path = ref<string>("");
+let poller: any = null;
+async function onFetchAudio() {
+  if (!isValidForm) return;
+  if (is_running) {
+    return;
+  }
+  is_running = true;
+
+  request.value = {
     tts_model_token: selectedModel.value!.model_token,
     uuid_idempotency_token: uuidGenerator(),
     inference_text: textToVoice.value,
   };
-  alert("Submitted!");
+  poller = setInterval(() => poller_func(request.value!.tts_model_token), 3000);
+}
+
+async function poller_func(token: string) {
+  await fetch(`/api/voicy_poll?token=${token}`).then(async (response) => {
+    var result = await response.json();
+    if (result.success === "true") {
+      clearInterval(poller);
+      audio_path.value = result.path;
+    }
+  });
 }
 
 const { data } = await useFetch("/api/voices");
