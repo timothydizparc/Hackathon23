@@ -24,7 +24,6 @@
       >
         Submit
       </button>
-      <button class="bg-purple-500 rounded font-bold text-white px-4 py-2 hover:bg-purple-700 ml-2" @click.prevent="getJokes">Sköj</button>
     </form>
   </div>
     <div class="mt-4">
@@ -53,6 +52,7 @@ const audioRef = ref<any>(null);
 const jokes = ref<string[] | undefined>([]);
 
 async function onSubmit() {
+  getJokes();
   const { data } = await useFetch("/api/voices");
   console.log(data.value?.voices);
   models.value = data.value?.voices;
