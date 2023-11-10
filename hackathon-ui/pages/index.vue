@@ -16,7 +16,7 @@
         Fill in the form to generate some sick voicelines by your favourite
         famous person/character
       </p>
-      <form class="mt-4" @submit.prevent="">
+      <form class="mt-4" @submit.prevent="onFetchAudio">
         <label class="block mb-2 font-bold">Voice</label>
 
         <select
@@ -46,7 +46,7 @@
         <button
           class="px-4 py-2 font-bold text-white bg-cyan-500 rounded hover:bg-pink-500 focus:outline-none focus:shadow-outline-blue cursor-pointer"
           type="submit"
-          @click.prevent="getJokes()"
+          :disabled="!isValidForm"
         >
           Submit
         </button>
